@@ -93,8 +93,16 @@ uint16_t kindColor(DetectionFeed::DetKind k) {
         case K::Drone: return C_DRONE;
         case K::GPS:   return C_GPS;
         case K::Meta:  return C_ALERT;   // magenta, matching the web META badge
+        case K::Flock: return C_FRAME;   // tier overrides this in the row draw
         default:       return C_GREY;
     }
+}
+
+// Flock hits are confidence-graded: tier 4 (probe + IE signature) is the
+// strongest, tier 3 (wildcard probe) still camera-shaped. Colour the chip by
+// confidence so a glance separates a likely camera from a weaker match.
+uint16_t flockTierColor(uint8_t tier) {
+    return (tier >= 4) ? C_FRAME : C_AMBER;
 }
 
 const char* kindTag(DetectionFeed::DetKind k) {
@@ -105,6 +113,7 @@ const char* kindTag(DetectionFeed::DetKind k) {
         case K::Drone: return "UAS";
         case K::GPS:   return "GPS";
         case K::Meta:  return "META";
+        case K::Flock: return "FLK";
         default:       return "?";
     }
 }
@@ -218,17 +227,23 @@ void drawDetectionBody(const DetectionFeed::Snapshot& s, uint32_t now) {
 
     for (int i = 0; i < s.recentCount && y < H - 26; i++) {
         const DetectionFeed::DetEvent& e = s.recent[i];
-        uint16_t kc = kindColor(e.kind);
+        bool isFlock = (e.kind == DetectionFeed::DetKind::Flock);
+        uint16_t kc = isFlock ? flockTierColor(e.tier) : kindColor(e.kind);
 
-        // Kind tag chip.
+        // Kind tag chip. Flock chips carry the tier digit (FLK4 / FLK3) so the
+        // confidence is legible without decoding the colour.
+        char tag[6];
+        if (isFlock) snprintf(tag, sizeof(tag), "FLK%u", (unsigned)e.tier);
+        else         strlcpy(tag, kindTag(e.kind), sizeof(tag));
         cv->fillRect(listX, y, 26, 9, kc);
         cv->setTextColor(C_BG);
         cv->setTextSize(1);
         cv->setCursor(listX + 2, y + 1);
-        cv->print(kindTag(e.kind));
+        cv->print(tag);
 
-        // Label (truncated by canvas clipping).
-        cv->setTextColor(i == 0 ? C_WHITE : C_TEXT);
+        // Label (truncated by canvas clipping). A top-confidence Flock hit
+        // (tier 4) is drawn white for emphasis regardless of list position.
+        cv->setTextColor((i == 0 || (isFlock && e.tier >= 4)) ? C_WHITE : C_TEXT);
         cv->setCursor(listX + 30, y + 1);
         char lbl[18];
         strlcpy(lbl, e.label[0] ? e.label : (e.mac[0] ? e.mac : "unknown"),

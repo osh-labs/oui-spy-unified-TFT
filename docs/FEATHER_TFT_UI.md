@@ -95,6 +95,18 @@ glasses) magenta. The Detector classifies composite Meta/Ray-Ban hits
 (`meta_composite`) as `DetKind::Meta` so they render with a distinct magenta
 `META` chip, mirroring the web dashboard's dedicated META badge.
 
+### Flock-You confidence filtering
+
+Flock-You's OUI match tiers 0-2 (SSID keyword, receiver/BSSID OUI echo, and
+bare transmitter OUI) collide with ordinary Wi-Fi silicon vendors, so an office
+full of phones/laptops/IoT floods the screen with non-camera hits. The TFT
+therefore surfaces only tier >= 3: tier 3 (`wildcard_probe`) and tier 4
+(`wildcard_probe_ie_sig`) are Flock-shaped. These push as `DetKind::Flock` with
+their tier, rendering a `FLK3` (amber) or `FLK4` (green) chip; tier 4 also draws
+its label white for emphasis. Tiers 0-2 still beep and log over serial/web as
+before, they are just kept off the graphical detection list. The on-screen
+unique count is therefore high-confidence cameras only.
+
 ## Status LED
 
 Mode code was written for the XIAO's active-LOW LED. The Feather's on-board red
@@ -132,7 +144,7 @@ detection/alert choke point:
 |------|-----------|------|-------|
 | Detector (`raw/detector.cpp`) | `bleNoteDetection()` | `BLE` | `isNew` from table upsert |
 | Foxhunter (`raw/foxhunter.cpp`) | tracking loop | — | drives the proximity gauge via `setProximity()` |
-| Flock-You WiFi (`raw/flockyou_promiscious.cpp`) | emit path beside `dongleDisplayShowAlert()` | `WiFi` | `isNew` from `chirpWorthy`; labels with matched SSID or tier method |
+| Flock-You WiFi (`raw/flockyou_promiscious.cpp`) | emit path beside `dongleDisplayShowAlert()` | `Flock` | only tier >= 3 (wildcard probe / probe+IE sig) reaches the TFT; tiers 0-2 (SSID/OUI-echo/bare-OUI) are suppressed as vendor-OUI noise; chip shows `FLK4`/`FLK3` coloured by confidence |
 | PCAP (`raw/pcap.cpp`) | `promisc_cb()` after `ring_push_bytes` | `WiFi` | firehose: throttled to ~6/s, 16-entry transmitter-MAC cache for `isNew`; labelled mgmt/ctrl/data |
 | Sky Spy (`raw/skyspy.cpp`) | `printerTask()` queue consumer | `Drone` | single choke point for all BLE + WiFi Remote ID paths; runs in task (not ISR) context |
 | BLE Sniff (`raw/blesniff.cpp`) | `Cb::onResult()` after `ring_push` | `BLE` | firehose: throttled to ~6/s, 16-entry MAC cache for `isNew` |
