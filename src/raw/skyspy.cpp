@@ -16,10 +16,18 @@
 #include <freertos/task.h>
 
 // Buzzer configuration
+#ifdef BOARD_FEATHER_TFT
+#define BUZZER_PIN 18
+#else
 #define BUZZER_PIN 3  // GPIO3 (D2) - PWM capable pin on Xiao ESP32 S3
+#endif
 
 // LED configuration
+#ifdef BOARD_FEATHER_TFT
+#define LED_PIN 13    // Feather onboard red LED (GPIO21 is the TFT power rail here)
+#else
 #define LED_PIN 21    // GPIO21 - Built-in orange LED on Xiao ESP32 S3 (inverted logic)
+#endif
 
 // Audio Configuration
 #define DETECT_FREQ 1000  // Detection alert - high pitch (faster beeps)

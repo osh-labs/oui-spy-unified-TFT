@@ -38,7 +38,11 @@
 // Hardware - matches sibling modes (active-low LED on GPIO21).
 // ---------------------------------------------------------------------------
 #define BLESNIFF_BUZZER_PIN 3
+#ifdef BOARD_FEATHER_TFT
+#define BLESNIFF_LED_PIN    13
+#else
 #define BLESNIFF_LED_PIN    21
+#endif
 
 static const ledc_channel_t BLESNIFF_BUZZER_CH    = LEDC_CHANNEL_0;
 static const ledc_timer_t   BLESNIFF_BUZZER_TIMER = LEDC_TIMER_0;

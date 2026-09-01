@@ -24,9 +24,17 @@
 #define MIRROR_SERIAL      0   // GPIO43 is UART TX on this board
 #else
 // Seeed XIAO ESP32-S3
+#ifdef BOARD_FEATHER_TFT
+#define BUZZER_PIN         18
+#else
 #define BUZZER_PIN         3
+#endif
 #define USE_BUZZER         1
+#ifdef BOARD_FEATHER_TFT
+#define LED_PIN            13
+#else
 #define LED_PIN            21
+#endif
 #define USE_LED            1
 #define LED_ACTIVE_HIGH    0
 #define MIRROR_SERIAL      1

@@ -24,6 +24,7 @@
 #include <SPIFFS.h>
 #include <Adafruit_NeoPixel.h>
 #include "modes.h"
+#include "detection_feed.h"
 
 // Rename setup/loop to avoid conflict with Arduino entry points
 #define setup detector_ns_setup

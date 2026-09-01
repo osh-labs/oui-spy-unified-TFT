@@ -19,12 +19,20 @@
 // ================================
 // Pin and Buzzer Definitions - Xiao ESP32 S3
 // ================================
+#ifdef BOARD_FEATHER_TFT
+#define BUZZER_PIN 18  // A0 header pin (external piezo); Feather has no onboard buzzer
+#else
 #define BUZZER_PIN 3   // GPIO3 (D2) for buzzer - good PWM pin on Xiao ESP32 S3
+#endif
 #define BUZZER_FREQ 2000  // Frequency in Hz
 #define BUZZER_DUTY 127  // 50% duty cycle for good volume without excessive power draw
 #define BEEP_DURATION 200  // Duration of each beep in ms
 #define BEEP_PAUSE 50  // Pause between beeps in ms (faster sequence)
+#ifdef BOARD_FEATHER_TFT
+#define LED_PIN 13   // Feather onboard red LED (GPIO21 is the TFT power rail here)
+#else
 #define LED_PIN 21   // GPIO21 for onboard LED (inverted logic)
+#endif
 
 // ================================
 // NeoPixel Definitions - Xiao ESP32 S3
@@ -1282,6 +1290,12 @@ static void bleNoteDetection(NimBLEAdvertisedDevice* dev, const String& mac,
     BLEDetection* row = nullptr;
     bool created = bleTableUpsert(macBuf, addrTy, method, matchedSig.c_str(),
                                   nameBuf, cid, svc, (int8_t)rssi, &row);
+
+    // Publish to the graphical detection feed (drives the Feather TFT UI;
+    // no-op storage cost on boards without a display).
+    DetectionFeed::pushDetection(DetectionFeed::DetKind::BLE,
+                                 nameBuf[0] ? nameBuf : method,
+                                 macBuf, (int8_t)rssi, 0, created);
 
     // Emit the live JSON line only on the FIRST sighting so the dashboard
     // doesn't get spammed by re-hits — matches Mode 3's dedup contract.
