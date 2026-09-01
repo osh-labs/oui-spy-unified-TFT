@@ -85,22 +85,28 @@ never toggles the display power rail. The ST7789 control pins
 (`TFT_CS/TFT_DC/TFT_RST/TFT_BACKLITE/TFT_I2C_POWER`) come from the Adafruit
 core's `pins_arduino.h`.
 
-## Extending to the remaining modes
+## Mode integration status
 
-The detector (BLE) and foxhunter (RSSI) are wired as reference integrations.
-To surface detections from the other modes, add a single `pushDetection()`
-call at each mode's existing detection/alert site:
+All six modes publish to the feed. Each mode's wrapper `mode_*.cpp` includes
+`detection_feed.h` (outside the anonymous namespace) and pushes at its existing
+detection/alert choke point:
 
-| Mode | Suggested hook | Kind |
-|------|----------------|------|
-| Flock-You WiFi (`raw/flockyou_promiscious.cpp`) | where a matched OUI/probe signature is logged | `DetKind::WiFi` |
-| PCAP (`raw/pcap.cpp`) | per captured frame of interest (throttle to avoid flooding) | `DetKind::WiFi` |
-| Sky Spy (`raw/skyspy.cpp`) | in the drone-detection beep trigger | `DetKind::Drone` |
-| BLE Sniff (`raw/blesniff.cpp`) | per advertising packet added to the capture | `DetKind::BLE` |
+| Mode | Hook site | Kind | Notes |
+|------|-----------|------|-------|
+| Detector (`raw/detector.cpp`) | `bleNoteDetection()` | `BLE` | `isNew` from table upsert |
+| Foxhunter (`raw/foxhunter.cpp`) | tracking loop | — | drives the proximity gauge via `setProximity()` |
+| Flock-You WiFi (`raw/flockyou_promiscious.cpp`) | emit path beside `dongleDisplayShowAlert()` | `WiFi` | `isNew` from `chirpWorthy`; labels with matched SSID or tier method |
+| PCAP (`raw/pcap.cpp`) | `promisc_cb()` after `ring_push_bytes` | `WiFi` | firehose: throttled to ~6/s, 16-entry transmitter-MAC cache for `isNew`; labelled mgmt/ctrl/data |
+| Sky Spy (`raw/skyspy.cpp`) | `printerTask()` queue consumer | `Drone` | single choke point for all BLE + WiFi Remote ID paths; runs in task (not ISR) context |
+| BLE Sniff (`raw/blesniff.cpp`) | `Cb::onResult()` after `ring_push` | `BLE` | firehose: throttled to ~6/s, 16-entry MAC cache for `isNew` |
 
-Each requires: add `#include "detection_feed.h"` to the mode's wrapper
-`mode_*.cpp` (outside the anonymous namespace) and one `pushDetection()` line
-at the detection site.
+### Firehose throttling
+
+PCAP and BLE Sniff capture at very high rates. Their hooks throttle surfaced
+events to roughly six per second and keep a small recently-seen-MAC ring so a
+brand-new device is always surfaced immediately (and counted as unique) while
+repeat traffic is rate-limited. This keeps the SPI blit off the capture hot
+path and the counters meaningful without a full device table.
 
 ## Known limitations / follow-ups
 

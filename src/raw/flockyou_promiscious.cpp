@@ -1576,6 +1576,13 @@ static void drainAlertQueue() {
     snprintf(methodLine, sizeof(methodLine), "wifi_%s", method);
     dongleDisplayShowAlert(methodLine, macStr, e.rssi, e.channel, ALERT_COOLDOWN_MS);
 
+    // Publish to the graphical detection feed (Feather TFT UI). Label with the
+    // matched SSID when present, otherwise the match method (OUI/probe tier).
+    DetectionFeed::pushDetection(
+        DetectionFeed::DetKind::WiFi,
+        (e.type == ALERT_SSID && e.ssid[0]) ? e.ssid : method,
+        macStr, e.rssi, e.channel, chirpWorthy);
+
 #if STOP_ON_OUI_HIT
     if (e.type != ALERT_SSID) stopSniffing("OUI hit");
 #endif
