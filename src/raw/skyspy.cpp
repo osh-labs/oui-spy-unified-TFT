@@ -16,10 +16,18 @@
 #include <freertos/task.h>
 
 // Buzzer configuration
+#ifdef BOARD_FEATHER_TFT
+#define BUZZER_PIN 18
+#else
 #define BUZZER_PIN 3  // GPIO3 (D2) - PWM capable pin on Xiao ESP32 S3
+#endif
 
 // LED configuration
+#ifdef BOARD_FEATHER_TFT
+#define LED_PIN 13    // Feather onboard red LED (GPIO21 is the TFT power rail here)
+#else
 #define LED_PIN 21    // GPIO21 - Built-in orange LED on Xiao ESP32 S3 (inverted logic)
+#endif
 
 // Audio Configuration
 #define DETECT_FREQ 1000  // Detection alert - high pitch (faster beeps)
@@ -349,6 +357,19 @@ void printerTask(void *param) {
     if (xQueueReceive(printQueue, &UAV, portMAX_DELAY)) {
       send_json_fast(&UAV);
       // Mesh functionality removed - only JSON output over USB serial
+
+      // Publish to the graphical detection feed (Feather TFT UI). Runs in this
+      // ordinary task context (not the WiFi/BLE ISR-style callbacks), so the
+      // feed's non-ISR critical section is safe here. Every queued frame is a
+      // confirmed Remote ID drone; label with the basic ID when present.
+      char macStr[18];
+      snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
+               UAV.mac[0], UAV.mac[1], UAV.mac[2],
+               UAV.mac[3], UAV.mac[4], UAV.mac[5]);
+      DetectionFeed::pushDetection(
+          DetectionFeed::DetKind::Drone,
+          UAV.uav_id[0] ? UAV.uav_id : "drone",
+          macStr, (int8_t)UAV.rssi, 0, true);
     }
   }
 }

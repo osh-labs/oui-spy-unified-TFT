@@ -36,7 +36,11 @@
 // Hardware — matches sibling modes (active-low LED on GPIO21).
 // ---------------------------------------------------------------------------
 #define PCAP_BUZZER_PIN 3
+#ifdef BOARD_FEATHER_TFT
+#define PCAP_LED_PIN    13
+#else
 #define PCAP_LED_PIN    21
+#endif
 
 static const ledc_channel_t PCAP_BUZZER_CH    = LEDC_CHANNEL_0;
 static const ledc_timer_t   PCAP_BUZZER_TIMER = LEDC_TIMER_0;
@@ -330,6 +334,40 @@ void promisc_cb(void* buf, wifi_promiscuous_pkt_type_t type) {
     ring_push_bytes(ring_dash, meta, pkt->payload, len);
     g_total_packets++;
     g_pkts_this_sec++;
+
+    // Publish to the graphical detection feed (Feather TFT UI). Passive capture
+    // is a firehose, so throttle surfaced events to ~6/s and keep a tiny
+    // recently-seen transmitter-MAC cache so the "unique" counter is useful.
+    if (len >= 16) {
+        static uint8_t  seenMacs[16][6];
+        static uint8_t  seenHead = 0;
+        static uint8_t  seenCount = 0;
+        static uint32_t lastFeedMs = 0;
+
+        const uint8_t* a2 = pkt->payload + 10;   // addr2 = transmitter
+        bool isNew = true;
+        for (uint8_t i = 0; i < seenCount; i++) {
+            if (memcmp(seenMacs[i], a2, 6) == 0) { isNew = false; break; }
+        }
+        if (isNew) {
+            memcpy(seenMacs[seenHead], a2, 6);
+            seenHead = (seenHead + 1) % 16;
+            if (seenCount < 16) seenCount++;
+        }
+
+        uint32_t nowMs = millis();
+        if (isNew || (nowMs - lastFeedMs) >= 160) {
+            lastFeedMs = nowMs;
+            char mac[18];
+            snprintf(mac, sizeof(mac), "%02x:%02x:%02x:%02x:%02x:%02x",
+                     a2[0], a2[1], a2[2], a2[3], a2[4], a2[5]);
+            const char* label = (type == WIFI_PKT_MGMT) ? "mgmt"
+                              : (type == WIFI_PKT_CTRL) ? "ctrl" : "data";
+            DetectionFeed::pushDetection(DetectionFeed::DetKind::WiFi,
+                                         label, mac, meta.rssi, meta.channel,
+                                         isNew);
+        }
+    }
 }
 
 void hop_task(void* /*arg*/) {

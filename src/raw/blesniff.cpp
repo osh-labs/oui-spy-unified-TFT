@@ -38,7 +38,11 @@
 // Hardware - matches sibling modes (active-low LED on GPIO21).
 // ---------------------------------------------------------------------------
 #define BLESNIFF_BUZZER_PIN 3
+#ifdef BOARD_FEATHER_TFT
+#define BLESNIFF_LED_PIN    13
+#else
 #define BLESNIFF_LED_PIN    21
+#endif
 
 static const ledc_channel_t BLESNIFF_BUZZER_CH    = LEDC_CHANNEL_0;
 static const ledc_timer_t   BLESNIFF_BUZZER_TIMER = LEDC_TIMER_0;
@@ -331,6 +335,37 @@ class Cb : public NimBLEAdvertisedDeviceCallbacks {
 
         g_total++;
         g_this_sec++;
+
+        // Publish to the graphical detection feed (Feather TFT UI). This is a
+        // firehose (wantDuplicates=true), so throttle surfaced events to ~6/s
+        // and use a tiny recently-seen-MAC cache so the "unique" counter stays
+        // meaningful without a full device table.
+        {
+            static uint8_t  seenMacs[16][6];
+            static uint8_t  seenHead = 0;
+            static uint8_t  seenCount = 0;
+            static uint32_t lastFeedMs = 0;
+
+            bool isNew = true;
+            for (uint8_t i = 0; i < seenCount; i++) {
+                if (memcmp(seenMacs[i], addr, 6) == 0) { isNew = false; break; }
+            }
+            if (isNew) {
+                memcpy(seenMacs[seenHead], addr, 6);
+                seenHead = (seenHead + 1) % 16;
+                if (seenCount < 16) seenCount++;
+            }
+
+            uint32_t nowMs = millis();
+            if (isNew || (nowMs - lastFeedMs) >= 160) {
+                lastFeedMs = nowMs;
+                NimBLEAddress ad = dev->getAddress();
+                DetectionFeed::pushDetection(
+                    DetectionFeed::DetKind::BLE,
+                    ad.toString().c_str(), ad.toString().c_str(),
+                    f.rssi, 0, isNew);
+            }
+        }
     }
 };
 

@@ -8,10 +8,18 @@
 #include <esp_wifi.h>
 
 // Hardware configuration
+#ifdef BOARD_FEATHER_TFT
+#define BUZZER_PIN 18
+#else
 #define BUZZER_PIN 3
+#endif
 #define BUZZER_FREQ 2000
 #define BUZZER_DUTY 127
+#ifdef BOARD_FEATHER_TFT
+#define LED_PIN 13
+#else
 #define LED_PIN 21
+#endif
 
 // Network configuration
 const char* AP_SSID = "foxhunter";
@@ -1055,6 +1063,9 @@ void loop() {
         // Handle proximity beeping
         if (targetDetected && (currentTime - lastTargetSeen < 5000)) { // Target seen within last 5 seconds
             handleProximityBeeping();
+
+            // Publish the live proximity gauge to the graphical UI.
+            DetectionFeed::setProximity((int8_t)currentRSSI, targetMAC.c_str(), true);
             
             // Print RSSI for visual fox hunting feedback (reduced frequency for real-time performance)
             static unsigned long lastRSSIPrint = 0;
@@ -1070,6 +1081,9 @@ void loop() {
             // Target lost - INSTANT LED OFF for maximum reactivity
             targetDetected = false;
             firstDetection = true; // Reset for next detection
+
+            // Show the "searching" state on the graphical UI.
+            DetectionFeed::setProximity((int8_t)currentRSSI, targetMAC.c_str(), false);
             
             // Turn off beep and LED immediately
             if (buzzerEnabled) {

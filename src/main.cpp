@@ -16,10 +16,16 @@
 #include <DNSServer.h>
 #include <Preferences.h>
 #include "modes.h"
+#include "board_pins.h"
+#include "detection_feed.h"
+#include "tft_display.h"
 
-// Hardware pins (shared across all modes)
-#define BUZZER_PIN 3
-#define LED_PIN 21
+// Hardware pins (shared across all modes). Sourced from board_pins.h so the
+// Feather TFT build does not drive the XIAO's GPIO21 (which is the TFT/I2C
+// power rail on the Feather) as a status LED. On the XIAO these resolve to the
+// original values (buzzer 3, LED 21).
+#define BUZZER_PIN OUISPY_BUZZER_PIN
+#define LED_PIN OUISPY_LED_PIN
 
 // Boot button (GPIO0) - held during boot to return to selector menu
 #define BOOT_BUTTON_PIN 0
@@ -497,7 +503,11 @@ void setup() {
     digitalWrite(BUZZER_PIN, LOW);
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, HIGH);  // LED off (inverted logic on XIAO)
-    
+
+    // Bring up the graphical UI (no-op on boards without a TFT). Done early so
+    // a splash is visible while the WiFi factory-reset dance below runs.
+    tftUiInit();
+
     // CRITICAL: Nuke ALL stored WiFi config from NVS.
     // The ESP32 persists AP SSID/password in flash and auto-restores it,
     // causing stale APs from previous firmware to appear on every boot.
@@ -604,6 +614,26 @@ void setup() {
     
     Serial.println("[OUI-SPY] ========== MODE STARTED ==========\n");
     Serial.flush();
+
+    // Seed the graphical UI with this mode's identity. Modes that publish
+    // richer state (detector, foxhunter) call DetectionFeed::beginMode()
+    // themselves during setup(); this guarantees a populated header even for
+    // modes that only push raw detections.
+    {
+        static const char* kNames[] = {
+            "SELECTOR", "DETECTOR", "FOXHUNTER", "FLOCK-YOU",
+            "PCAP", "SKY SPY", "BLE SNIFF"
+        };
+        static const char* kDescs[] = {
+            "boot menu", "BLE/WiFi surveillance", "RSSI proximity",
+            "2.4GHz sniffer", "packet capture", "drone Remote ID",
+            "BLE advertising"
+        };
+        int mi = (currentMode >= 0 && currentMode <= 6) ? currentMode : 0;
+        DetectionFeed::beginMode(kNames[mi], kDescs[mi]);
+        if (mi == 0) DetectionFeed::setStatus(DetectionFeed::DetStatus::Idle);
+        tftUiSetMode(mi, kNames[mi], kDescs[mi]);
+    }
 }
 
 // ============================================================================
@@ -645,7 +675,11 @@ static void checkBootButtonLoop() {
 void loop() {
     // ALWAYS check boot button - hold 2s from ANY mode to return to menu
     checkBootButtonLoop();
-    
+
+    // Repaint the graphical UI (no-op on boards without a TFT). Cheap: only
+    // blits when the DetectionFeed revision changed or on the periodic refresh.
+    tftUiTick(millis());
+
     // Route to active mode's loop
     switch (currentMode) {
         case 1: detector_loop(); break;

@@ -16,6 +16,7 @@
 #include <NimBLEAdvertisedDevice.h>
 #include <esp_wifi.h>
 #include "modes.h"
+#include "detection_feed.h"
 
 // Rename setup/loop
 #define setup foxhunter_ns_setup

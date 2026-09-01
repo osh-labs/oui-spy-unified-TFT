@@ -24,9 +24,17 @@
 #define MIRROR_SERIAL      0   // GPIO43 is UART TX on this board
 #else
 // Seeed XIAO ESP32-S3
+#ifdef BOARD_FEATHER_TFT
+#define BUZZER_PIN         18
+#else
 #define BUZZER_PIN         3
+#endif
 #define USE_BUZZER         1
+#ifdef BOARD_FEATHER_TFT
+#define LED_PIN            13
+#else
 #define LED_PIN            21
+#endif
 #define USE_LED            1
 #define LED_ACTIVE_HIGH    0
 #define MIRROR_SERIAL      1
@@ -1567,6 +1575,13 @@ static void drainAlertQueue() {
     char methodLine[40];
     snprintf(methodLine, sizeof(methodLine), "wifi_%s", method);
     dongleDisplayShowAlert(methodLine, macStr, e.rssi, e.channel, ALERT_COOLDOWN_MS);
+
+    // Publish to the graphical detection feed (Feather TFT UI). Label with the
+    // matched SSID when present, otherwise the match method (OUI/probe tier).
+    DetectionFeed::pushDetection(
+        DetectionFeed::DetKind::WiFi,
+        (e.type == ALERT_SSID && e.ssid[0]) ? e.ssid : method,
+        macStr, e.rssi, e.channel, chirpWorthy);
 
 #if STOP_ON_OUI_HIT
     if (e.type != ALERT_SSID) stopSniffing("OUI hit");

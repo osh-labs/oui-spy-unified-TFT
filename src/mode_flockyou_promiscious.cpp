@@ -28,6 +28,7 @@
 #include <SPIFFS.h>
 #include <Preferences.h>
 #include "modes.h"
+#include "detection_feed.h"
 
 // Rename setup/loop so they don't collide with the unified main.cpp's
 // Arduino entry points (and the other modes' wrapped setup/loop).
