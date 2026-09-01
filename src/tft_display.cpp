@@ -59,6 +59,7 @@ constexpr uint16_t C_BLE     = 0x073F;  // #00e5ff cyan
 constexpr uint16_t C_WIFI    = 0x07EC;  // #00ff66 green
 constexpr uint16_t C_DRONE   = 0xF95A;  // #ff2bd6 magenta
 constexpr uint16_t C_GPS     = 0xAFE7;  // #a8ff3e lime
+constexpr uint16_t C_CYAN    = 0x073F;  // #00e5ff cyan (secondary accent / panels)
 
 Adafruit_ST7789 tft = Adafruit_ST7789(&SPI, TFT_CS, TFT_DC, TFT_RST);
 GFXcanvas16*     cv  = nullptr;
@@ -185,7 +186,7 @@ void drawDetectionBody(const DetectionFeed::Snapshot& s, uint32_t now) {
 
     // Left column: giant unique-hit count.
     cv->setTextColor(s.status == DetectionFeed::DetStatus::Alert && gBlink
-                         ? C_ALERT : C_WHITE);
+                         ? C_ALERT : C_FRAME);
     cv->setTextSize(4);
     char cnt[8];
     snprintf(cnt, sizeof(cnt), "%lu", (unsigned long)s.uniqueHits);
@@ -197,7 +198,7 @@ void drawDetectionBody(const DetectionFeed::Snapshot& s, uint32_t now) {
     cv->print("UNIQUE");
 
     // Vertical divider.
-    cv->drawFastVLine(72, bodyTop, H - bodyTop - 14, C_DIM);
+    cv->drawFastVLine(72, bodyTop, H - bodyTop - 14, C_CYAN);
 
     // Right column: recent detections, most-recent first.
     const int16_t listX = 78;
@@ -236,7 +237,7 @@ void drawDetectionBody(const DetectionFeed::Snapshot& s, uint32_t now) {
         int16_t barY = y + 10;
         int16_t barX = listX;
         int16_t barW = 120;
-        cv->drawRect(barX, barY, barW, 4, C_DIM);
+        cv->drawRect(barX, barY, barW, 4, C_CYAN);
         int pct = rssiPct(e.rssi);
         if (pct > 0) {
             cv->fillRect(barX + 1, barY + 1, (barW - 2) * pct / 100, 2,
@@ -348,6 +349,11 @@ void render(uint32_t now) {
     DetectionFeed::getSnapshot(s);
 
     cv->fillScreen(C_BG);
+    // Teal body panel with a cyan hairline border, echoing the web theme's
+    // translucent panels so the scanning screen visibly carries the palette
+    // rather than reading as plain green-on-black.
+    cv->fillRect(0, 19, W, H - 19 - 12, C_PANEL);
+    cv->drawRect(1, 20, W - 2, H - 20 - 13, C_CYAN);
     drawHeader(s);
     if (s.proximityActive) {
         drawProximityBody(s);
