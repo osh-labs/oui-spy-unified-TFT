@@ -44,6 +44,16 @@
 #define BLESNIFF_LED_PIN    21
 #endif
 
+// Board-aware status-LED active level. XIAO LED is active-LOW; the Feather
+// on-board red LED (GPIO13) is active-HIGH. Keeps XIAO behaviour identical.
+#ifdef BOARD_FEATHER_TFT
+#define LED_ON_LVL  HIGH
+#define LED_OFF_LVL LOW
+#else
+#define LED_ON_LVL  LOW
+#define LED_OFF_LVL HIGH
+#endif
+
 static const ledc_channel_t BLESNIFF_BUZZER_CH    = LEDC_CHANNEL_0;
 static const ledc_timer_t   BLESNIFF_BUZZER_TIMER = LEDC_TIMER_0;
 
@@ -2720,7 +2730,7 @@ void led_task(void*) {
             if (now < on_until) on = true;
             else if ((now / 1000) % 3 == 0 && (now % 1000) < 60) on = true;
         }
-        digitalWrite(BLESNIFF_LED_PIN, on ? LOW : HIGH);
+        digitalWrite(BLESNIFF_LED_PIN, on ? LED_ON_LVL : LED_OFF_LVL);
         vTaskDelay(pdMS_TO_TICKS(20));
     }
 }
@@ -2835,7 +2845,7 @@ bool wifi_ap_start() {
 // ---------------------------------------------------------------------------
 void setup() {
     pinMode(BLESNIFF_LED_PIN, OUTPUT);
-    digitalWrite(BLESNIFF_LED_PIN, HIGH);   // LED off (inverted)
+    digitalWrite(BLESNIFF_LED_PIN, LED_OFF_LVL);   // LED off (inverted)
 
     blesniff_buzzer_setup();
 

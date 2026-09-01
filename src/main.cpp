@@ -212,9 +212,9 @@ static void selectorBeep() {
     // LED flash sync
     pinMode(LED_PIN, OUTPUT);
     for (int i = 0; i < 3; i++) {
-        digitalWrite(LED_PIN, LOW);   // On
+        digitalWrite(LED_PIN, OUISPY_LED_ON);   // On
         delay(50);
-        digitalWrite(LED_PIN, HIGH);  // Off
+        digitalWrite(LED_PIN, OUISPY_LED_OFF);  // Off
         delay(50);
     }
 }
@@ -502,7 +502,7 @@ void setup() {
     pinMode(BUZZER_PIN, OUTPUT);
     digitalWrite(BUZZER_PIN, LOW);
     pinMode(LED_PIN, OUTPUT);
-    digitalWrite(LED_PIN, HIGH);  // LED off (inverted logic on XIAO)
+    digitalWrite(LED_PIN, OUISPY_LED_OFF);  // LED off (board-aware)
 
     // Bring up the graphical UI (no-op on boards without a TFT). Done early so
     // a splash is visible while the WiFi factory-reset dance below runs.
@@ -641,33 +641,64 @@ void setup() {
 // ============================================================================
 static unsigned long bootBtnStart = 0;
 static bool bootBtnActive = false;
+static bool bootLongFired = false;
+
+// Single-button navigation on the BOOT button (GPIO0), works from any mode:
+//   - TAP (release before BOOT_HOLD_TIME): in the boot selector, advance the
+//     on-screen mode highlight. In a running mode, no-op.
+//   - HOLD (>= BOOT_HOLD_TIME): in the boot selector, LAUNCH the highlighted
+//     mode; in a running mode, RETURN to the selector. Fires once on the
+//     threshold crossing.
+// On-device menu navigation only engages when a TFT menu exists
+// (tftUiMenuCount() > 0); on the display-less XIAO the hold falls back to the
+// original "return to / stay in selector" behaviour, unchanged.
+static void bootButtonBeep() {
+    for (int i = 0; i < 3; i++) {
+        ledcSetup(0, 3000, 8);
+        ledcAttachPin(BUZZER_PIN, 0);
+        ledcWrite(0, 100);
+        delay(80);
+        ledcWrite(0, 0);
+        delay(60);
+    }
+}
 
 static void checkBootButtonLoop() {
-    if (digitalRead(BOOT_BUTTON_PIN) == LOW) {
+    bool pressed = (digitalRead(BOOT_BUTTON_PIN) == LOW);
+    unsigned long now = millis();
+
+    if (pressed) {
         if (!bootBtnActive) {
-            // Button just pressed - start timing
             bootBtnActive = true;
-            bootBtnStart = millis();
-        } else if (millis() - bootBtnStart >= BOOT_HOLD_TIME) {
-            // Held long enough - triple beep confirmation then reboot to menu
-            Serial.println("\n[OUI-SPY] *** BOOT BUTTON HELD -> RETURNING TO MENU ***");
-            Serial.flush();
-            for (int i = 0; i < 3; i++) {
-                ledcSetup(0, 3000, 8);
-                ledcAttachPin(BUZZER_PIN, 0);
-                ledcWrite(0, 100);
-                delay(80);
-                ledcWrite(0, 0);
-                delay(60);
+            bootBtnStart = now;
+            bootLongFired = false;
+        } else if (!bootLongFired && now - bootBtnStart >= BOOT_HOLD_TIME) {
+            bootLongFired = true;  // long-hold action fires once
+            int targetMode;
+            if (currentMode == 0 && tftUiMenuCount() > 0) {
+                // In the selector with an on-screen menu: launch the highlight.
+                targetMode = tftUiMenuSelected() + 1;   // entry 0..5 -> mode 1..6
+                Serial.printf("\n[OUI-SPY] *** BOOT HOLD -> LAUNCH MODE %d ***\n", targetMode);
+            } else {
+                // Running mode (or no menu): return to / stay in the selector.
+                targetMode = 0;
+                Serial.println("\n[OUI-SPY] *** BOOT HOLD -> RETURN TO SELECTOR ***");
             }
-            // Clear mode and reboot
+            Serial.flush();
+            bootButtonBeep();
             prefs.begin("unified-mode", false);
-            prefs.putInt("mode", 0);
+            prefs.putInt("mode", targetMode);
             prefs.end();
             delay(200);
             ESP.restart();
         }
     } else {
+        // Release: if it was a short tap (long action never fired), treat as a
+        // navigation step in the selector menu.
+        if (bootBtnActive && !bootLongFired && currentMode == 0 &&
+            tftUiMenuCount() > 0) {
+            tftUiMenuHighlight(tftUiMenuSelected() + 1);
+        }
         bootBtnActive = false;
     }
 }
@@ -697,7 +728,7 @@ void loop() {
                 static bool ledState = false;
                 if (millis() - lastLed > 1000) {
                     ledState = !ledState;
-                    digitalWrite(LED_PIN, ledState ? LOW : HIGH);
+                    digitalWrite(LED_PIN, ledState ? OUISPY_LED_ON : OUISPY_LED_OFF);
                     lastLed = millis();
                 }
             }

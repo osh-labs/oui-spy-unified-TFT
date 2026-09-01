@@ -30,11 +30,24 @@ void tftUiSetMode(int modeIndex, const char* name, const char* desc);
 // periodic clock/animation refresh.
 void tftUiTick(uint32_t nowMs);
 
+// ---- On-device selector navigation (single BOOT button) -----------------
+// When the boot selector (mode 0) is active, the display shows a highlighted
+// mode menu instead of the idle detection screen. main.cpp drives it:
+//   tftUiMenuCount()          number of selectable modes (for wrap-around)
+//   tftUiMenuHighlight(i)     move the highlight to entry i (0-based)
+//   tftUiMenuSelected()       read the current highlight
+int  tftUiMenuCount();
+void tftUiMenuHighlight(int index);
+int  tftUiMenuSelected();
+
 #else  // ---- no display: inline no-ops ----
 
 static inline void tftUiInit() {}
 static inline void tftUiSetMode(int, const char*, const char*) {}
 static inline void tftUiTick(uint32_t) {}
+static inline int  tftUiMenuCount() { return 0; }
+static inline void tftUiMenuHighlight(int) {}
+static inline int  tftUiMenuSelected() { return 0; }
 
 #endif // OUISPY_HAS_TFT
 

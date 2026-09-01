@@ -67,6 +67,40 @@ Rendered flicker-free via an off-screen `GFXcanvas16` in PSRAM, blitted with
   SEARCHING state when the target is out of range.
 - Footer: hits/min, seen (unique/total), and uptime.
 
+## On-device navigation (single BOOT button)
+
+The Feather's only usable user button is BOOT (GPIO0); the second physical
+button is RESET and cannot be read. Navigation is therefore driven from BOOT
+alone:
+
+- **Tap** (release before 1.5 s): in the boot selector, advance the on-screen
+  mode highlight. In a running mode, no-op.
+- **Hold** (>= 1.5 s): in the boot selector, launch the highlighted mode; in a
+  running mode, return to the selector. Confirmed by three chirps.
+
+The selector renders a highlighted mode menu (`SELECT MODE`) on the TFT so the
+web UI is no longer required to change modes. On the display-less XIAO,
+`tftUiMenuCount()` is 0 and the hold falls back to the original
+return-to-selector behaviour, unchanged.
+
+## Colour theme
+
+The palette mirrors the oui-spy-unified-blue web theme
+(colonelpanichacks.github.io/oui-spy-unified-blue), converted to RGB565:
+near-black teal background (`#030805`), neon green primary accent (`#00ff66`),
+cyan (`#00e5ff`), magenta for alerts/errors (`#ff2bd6`), amber for warnings
+(`#ffb000`), body text `#cfe8d8`, muted labels `#6a8878`. Detection kind chips:
+BLE cyan, WiFi green, UAS (drone) magenta, GPS lime.
+
+## Status LED
+
+Mode code was written for the XIAO's active-LOW LED. The Feather's on-board red
+LED (GPIO13) is active-HIGH, so the raw literals left it lit at idle. Board-
+aware `OUISPY_LED_ON`/`OUISPY_LED_OFF` (and per-file `LED_ON_LVL`/`LED_OFF_LVL`,
+and flockyou's `LED_ACTIVE_HIGH`) now resolve to the correct level via
+`OUISPY_LED_INVERTED`. The XIAO build expands to the original `LOW`/`HIGH` and
+is behaviourally unchanged.
+
 ## Building
 
 ```bash

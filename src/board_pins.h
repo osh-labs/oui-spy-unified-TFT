@@ -24,6 +24,7 @@
 #define OUISPY_BOARD_PINS_H
 
 #include <stdint.h>
+#include <Arduino.h>   // HIGH / LOW
 
 #if defined(BOARD_FEATHER_TFT)
 
@@ -68,5 +69,19 @@ static const int OUISPY_GPS_RX_PIN  = 44;
 #define OUISPY_HAS_TFT 0
 
 #endif
+
+// ---------------------------------------------------------------------------
+// Status-LED active level, board-aware.
+//
+// All mode code was written for the XIAO's on-board LED, which is active-LOW
+// (LOW = lit, HIGH = dark). The Feather's on-board red LED (GPIO13) is
+// active-HIGH, so the same literals leave it lit at idle and inverted during
+// activity. These macros resolve to the correct level for the selected board
+// via OUISPY_LED_INVERTED, so writing OUISPY_LED_ON / OUISPY_LED_OFF does the
+// right thing everywhere. On the XIAO they expand to LOW / HIGH exactly as
+// before, leaving that build byte-for-byte unchanged in behaviour.
+// ---------------------------------------------------------------------------
+#define OUISPY_LED_ON   (OUISPY_LED_INVERTED ? LOW  : HIGH)
+#define OUISPY_LED_OFF  (OUISPY_LED_INVERTED ? HIGH : LOW)
 
 #endif // OUISPY_BOARD_PINS_H
