@@ -36,7 +36,11 @@
 #define LED_PIN            21
 #endif
 #define USE_LED            1
-#define LED_ACTIVE_HIGH    0
+#ifdef BOARD_FEATHER_TFT
+#define LED_ACTIVE_HIGH    1   // Feather on-board red LED (GPIO13) is active-HIGH
+#else
+#define LED_ACTIVE_HIGH    0   // XIAO on-board LED is active-LOW
+#endif
 #define MIRROR_SERIAL      1
 #define MIRROR_TX_PIN      43
 #endif

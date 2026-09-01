@@ -44,19 +44,21 @@ namespace {
 constexpr int16_t W = 240;
 constexpr int16_t H = 135;
 
-// Colour palette (RGB565).
-constexpr uint16_t C_BG      = 0x0000;  // black
-constexpr uint16_t C_FRAME   = 0x07E0;  // green (OUI-SPY house colour)
-constexpr uint16_t C_DIM     = 0x03E0;  // dim green
-constexpr uint16_t C_TEXT    = 0x07E0;  // green
-constexpr uint16_t C_WHITE   = 0xFFFF;
-constexpr uint16_t C_GREY    = 0x8410;
-constexpr uint16_t C_ALERT   = 0xF800;  // red
-constexpr uint16_t C_AMBER   = 0xFD20;  // orange
-constexpr uint16_t C_BLE     = 0x051F;  // blue
-constexpr uint16_t C_WIFI    = 0x07FF;  // cyan
-constexpr uint16_t C_DRONE   = 0xF81F;  // magenta
-constexpr uint16_t C_GPS     = 0xFFE0;  // yellow
+// Colour palette (RGB565), matched to the oui-spy-unified-blue web theme
+// (colonelpanichacks.github.io/oui-spy-unified-blue). Hex -> RGB565 alongside.
+constexpr uint16_t C_BG      = 0x0040;  // #030805 near-black teal (page bg)
+constexpr uint16_t C_PANEL   = 0x0920;  // #0a2015 grid/panel fill
+constexpr uint16_t C_FRAME   = 0x07EC;  // #00ff66 neon green (primary accent)
+constexpr uint16_t C_DIM     = 0x09C4;  // #0a3a20 green-dim (dividers/fills)
+constexpr uint16_t C_TEXT    = 0xCF5B;  // #cfe8d8 body text
+constexpr uint16_t C_WHITE   = 0xFFFF;  // #ffffff emphasis
+constexpr uint16_t C_GREY    = 0x6C4F;  // #6a8878 muted labels
+constexpr uint16_t C_ALERT   = 0xF95A;  // #ff2bd6 magenta (alerts/errors)
+constexpr uint16_t C_AMBER   = 0xFD80;  // #ffb000 amber (warnings)
+constexpr uint16_t C_BLE     = 0x073F;  // #00e5ff cyan
+constexpr uint16_t C_WIFI    = 0x07EC;  // #00ff66 green
+constexpr uint16_t C_DRONE   = 0xF95A;  // #ff2bd6 magenta
+constexpr uint16_t C_GPS     = 0xAFE7;  // #a8ff3e lime
 
 Adafruit_ST7789 tft = Adafruit_ST7789(&SPI, TFT_CS, TFT_DC, TFT_RST);
 GFXcanvas16*     cv  = nullptr;
@@ -67,6 +69,20 @@ uint32_t gLastRev = 0xFFFFFFFF;
 uint32_t gLastPaint = 0;
 uint32_t gLastBlink = 0;
 bool     gBlink = false;
+
+// On-device selector menu state. Active only while mode 0 (boot selector) is
+// the current mode. Entry i corresponds to firmware mode (i + 1).
+const char* const kMenuNames[] = {
+    "DETECTOR", "FOXHUNTER", "FLOCK-YOU", "PCAP", "SKY SPY", "BLE SNIFF"
+};
+const char* const kMenuDescs[] = {
+    "BLE/WiFi surveillance", "RSSI proximity tracker", "2.4GHz sniffer",
+    "WiFi packet capture", "drone Remote ID", "BLE advertising capture"
+};
+constexpr int kMenuCount = sizeof(kMenuNames) / sizeof(kMenuNames[0]);
+bool gInSelector = false;
+int  gMenuSel    = 0;
+uint32_t gMenuRev = 0;   // bumped on highlight change to force a repaint
 
 uint16_t kindColor(DetectionFeed::DetKind k) {
     using K = DetectionFeed::DetKind;
@@ -139,7 +155,7 @@ void drawFooter(const DetectionFeed::Snapshot& s, uint32_t now) {
     int16_t y = H - 13;
     cv->drawFastHLine(0, y, W, C_FRAME);
     cv->setTextSize(1);
-    cv->setTextColor(C_DIM);
+    cv->setTextColor(C_GREY);
 
     char buf[48];
     // rate
@@ -176,7 +192,7 @@ void drawDetectionBody(const DetectionFeed::Snapshot& s, uint32_t now) {
     cv->setCursor(6, bodyTop + 10);
     cv->print(cnt);
     cv->setTextSize(1);
-    cv->setTextColor(C_DIM);
+    cv->setTextColor(C_GREY);
     cv->setCursor(6, bodyTop + 46);
     cv->print("UNIQUE");
 
@@ -241,7 +257,7 @@ void drawDetectionBody(const DetectionFeed::Snapshot& s, uint32_t now) {
 void drawProximityBody(const DetectionFeed::Snapshot& s) {
     const int16_t top = 24;
     cv->setTextSize(1);
-    cv->setTextColor(C_DIM);
+    cv->setTextColor(C_GREY);
     cv->setCursor(6, top);
     cv->print("TARGET ");
     cv->setTextColor(C_WHITE);
@@ -249,7 +265,7 @@ void drawProximityBody(const DetectionFeed::Snapshot& s) {
 
     if (!s.proximityLocked) {
         cv->setTextSize(3);
-        cv->setTextColor(gBlink ? C_AMBER : C_DIM);
+        cv->setTextColor(gBlink ? C_AMBER : C_GREY);
         cv->setCursor(40, 60);
         cv->print("SEARCHING");
         return;
@@ -282,7 +298,52 @@ void drawProximityBody(const DetectionFeed::Snapshot& s) {
     cv->print(band);
 }
 
+// On-device mode picker shown while the boot selector (mode 0) is active.
+void drawMenu() {
+    cv->fillScreen(C_BG);
+
+    // Header.
+    cv->fillRect(0, 0, W, 18, C_BG);
+    cv->drawFastHLine(0, 18, W, C_FRAME);
+    cv->setTextSize(2);
+    cv->setTextColor(C_WHITE);
+    cv->setCursor(3, 2);
+    cv->print("SELECT MODE");
+
+    // Menu rows. Six entries in the 18..122 band -> ~17 px each.
+    const int16_t top = 21, rowH = 17;
+    for (int i = 0; i < kMenuCount; i++) {
+        int16_t y = top + i * rowH;
+        bool sel = (i == gMenuSel);
+        if (sel) {
+            cv->fillRect(2, y, W - 4, rowH - 2, C_FRAME);   // highlight bar
+        }
+        cv->setTextSize(1);
+        cv->setTextColor(sel ? C_BG : C_FRAME);
+        cv->setCursor(6, y + 1);
+        cv->print(kMenuNames[i]);
+        cv->setTextColor(sel ? C_BG : C_GREY);
+        cv->setCursor(96, y + 1);
+        cv->print(kMenuDescs[i]);
+    }
+
+    // Footer hint.
+    int16_t fy = H - 13;
+    cv->drawFastHLine(0, fy, W, C_FRAME);
+    cv->setTextSize(1);
+    cv->setTextColor(C_GREY);
+    cv->setCursor(3, fy + 3);
+    cv->print("tap: next   hold: launch");
+
+    tft.drawRGBBitmap(0, 0, cv->getBuffer(), W, H);
+}
+
 void render(uint32_t now) {
+    if (gInSelector) {
+        drawMenu();
+        return;
+    }
+
     DetectionFeed::Snapshot s;
     DetectionFeed::getSnapshot(s);
 
@@ -329,7 +390,7 @@ void tftUiInit() {
     cv->setCursor(24, 40);
     cv->print("OUI SPY");
     cv->setTextSize(1);
-    cv->setTextColor(C_DIM);
+    cv->setTextColor(C_GREY);
     cv->setCursor(52, 84);
     cv->print("surveillance detection");
     tft.drawRGBBitmap(0, 0, cv->getBuffer(), W, H);
@@ -339,9 +400,22 @@ void tftUiInit() {
 void tftUiSetMode(int modeIndex, const char* name, const char* desc) {
     gModeIndex = modeIndex;
     if (name) strlcpy(gModeName, name, sizeof(gModeName));
+    gInSelector = (modeIndex == 0);   // mode 0 == boot selector -> show menu
     gLastRev = 0xFFFFFFFF;  // force a repaint on next tick
     (void)desc;
 }
+
+int tftUiMenuCount() { return kMenuCount; }
+
+void tftUiMenuHighlight(int index) {
+    if (kMenuCount <= 0) return;
+    index %= kMenuCount;
+    if (index < 0) index += kMenuCount;
+    gMenuSel = index;
+    gMenuRev++;             // force a repaint on next tick
+}
+
+int tftUiMenuSelected() { return gMenuSel; }
 
 void tftUiTick(uint32_t nowMs) {
     if (!cv) return;
@@ -352,7 +426,9 @@ void tftUiTick(uint32_t nowMs) {
         gLastBlink = nowMs;
     }
 
-    uint32_t rev = DetectionFeed::revision();
+    // Fold the menu-highlight revision into the detection-feed revision so a
+    // highlight change repaints even though the feed itself is unchanged.
+    uint32_t rev = DetectionFeed::revision() + gMenuRev;
     bool dirty = (rev != gLastRev);
     // Also refresh at least twice a second so the blink + uptime advance.
     bool periodic = (nowMs - gLastPaint >= 500);

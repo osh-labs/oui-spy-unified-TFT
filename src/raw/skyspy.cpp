@@ -29,6 +29,16 @@
 #define LED_PIN 21    // GPIO21 - Built-in orange LED on Xiao ESP32 S3 (inverted logic)
 #endif
 
+// Board-aware status-LED active level. XIAO LED is active-LOW; the Feather
+// on-board red LED (GPIO13) is active-HIGH. Keeps XIAO behaviour identical.
+#ifdef BOARD_FEATHER_TFT
+#define LED_ON_LVL  HIGH
+#define LED_OFF_LVL LOW
+#else
+#define LED_ON_LVL  LOW
+#define LED_OFF_LVL HIGH
+#endif
+
 // Audio Configuration
 #define DETECT_FREQ 1000  // Detection alert - high pitch (faster beeps)
 #define HEARTBEAT_FREQ 600 // Heartbeat pulse frequency
@@ -167,9 +177,9 @@ void buzzerTask(void *parameter) {
       Serial.println("DRONE DETECTED! Playing alert sequence");
       for (int i = 0; i < 3; i++) {
         if (ssBuzzerOn) tone(BUZZER_PIN, DETECT_FREQ, DETECT_BEEP_DURATION);
-        digitalWrite(LED_PIN, LOW);  // Turn on LED (inverted logic)
+        digitalWrite(LED_PIN, LED_ON_LVL);  // Turn on LED (inverted logic)
         vTaskDelay(pdMS_TO_TICKS(150)); // LED on during beep
-        digitalWrite(LED_PIN, HIGH); // Turn off LED (inverted logic)
+        digitalWrite(LED_PIN, LED_OFF_LVL); // Turn off LED (inverted logic)
         vTaskDelay(pdMS_TO_TICKS(50)); // Short pause between beeps
       }
       Serial.println("Detection complete - drone identified!");
@@ -184,14 +194,14 @@ void buzzerTask(void *parameter) {
     if (do_heartbeat) {
       Serial.println("Heartbeat: Drone still in range");
       if (ssBuzzerOn) tone(BUZZER_PIN, HEARTBEAT_FREQ, HEARTBEAT_DURATION);
-      digitalWrite(LED_PIN, LOW);  // Turn on LED (inverted logic)
+      digitalWrite(LED_PIN, LED_ON_LVL);  // Turn on LED (inverted logic)
       vTaskDelay(pdMS_TO_TICKS(100));
-      digitalWrite(LED_PIN, HIGH); // Turn off LED (inverted logic)
+      digitalWrite(LED_PIN, LED_OFF_LVL); // Turn off LED (inverted logic)
       vTaskDelay(pdMS_TO_TICKS(50));
       if (ssBuzzerOn) tone(BUZZER_PIN, HEARTBEAT_FREQ, HEARTBEAT_DURATION);
-      digitalWrite(LED_PIN, LOW);  // Turn on LED (inverted logic)
+      digitalWrite(LED_PIN, LED_ON_LVL);  // Turn on LED (inverted logic)
       vTaskDelay(pdMS_TO_TICKS(100));
-      digitalWrite(LED_PIN, HIGH); // Turn off LED (inverted logic)
+      digitalWrite(LED_PIN, LED_OFF_LVL); // Turn off LED (inverted logic)
     }
     
     // Check for new beep triggers every 50ms
@@ -408,9 +418,9 @@ void playCloseEncounters() {
 
   for (int i = 0; i < 5; i++) {
     tone(BUZZER_PIN, notes[i].freq, notes[i].dur);
-    digitalWrite(LED_PIN, LOW);   // LED flash with each note
+    digitalWrite(LED_PIN, LED_ON_LVL);   // LED flash with each note
     delay(notes[i].dur);
-    digitalWrite(LED_PIN, HIGH);
+    digitalWrite(LED_PIN, LED_OFF_LVL);
     noTone(BUZZER_PIN);
     if (notes[i].gap > 0) delay(notes[i].gap);
   }
@@ -420,7 +430,7 @@ void playCloseEncounters() {
 
 void initializeLED() {
   pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, HIGH); // Turn off LED initially (inverted logic)
+  digitalWrite(LED_PIN, LED_OFF_LVL); // Turn off LED initially (inverted logic)
   Serial.println("Orange LED initialized on GPIO21 (inverted logic)");
 }
 

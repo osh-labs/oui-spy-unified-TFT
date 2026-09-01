@@ -34,6 +34,16 @@
 #define LED_PIN 21   // GPIO21 for onboard LED (inverted logic)
 #endif
 
+// Board-aware status-LED active level. XIAO LED is active-LOW; the Feather
+// on-board red LED (GPIO13) is active-HIGH. Keeps XIAO behaviour identical.
+#ifdef BOARD_FEATHER_TFT
+#define LED_ON_LVL  HIGH
+#define LED_OFF_LVL LOW
+#else
+#define LED_ON_LVL  LOW
+#define LED_OFF_LVL HIGH
+#endif
+
 // ================================
 // NeoPixel Definitions - Xiao ESP32 S3
 // ================================
@@ -252,13 +262,13 @@ bool isSerialConnected() {
 // ================================
 void ledOn() {
     if (ledEnabled) {
-        digitalWrite(LED_PIN, LOW);  // LOW = LED ON for Xiao ESP32-S3
+        digitalWrite(LED_PIN, LED_ON_LVL);  // LOW = LED ON for Xiao ESP32-S3
     }
 }
 
 void ledOff() {
     if (ledEnabled) {
-        digitalWrite(LED_PIN, HIGH); // HIGH = LED OFF for Xiao ESP32-S3
+        digitalWrite(LED_PIN, LED_OFF_LVL); // HIGH = LED OFF for Xiao ESP32-S3
     }
 }
 
@@ -273,7 +283,7 @@ void initializeBuzzer() {
     
     // Setup LED (inverted logic - HIGH = OFF for Xiao ESP32-S3)
     pinMode(LED_PIN, OUTPUT);
-    digitalWrite(LED_PIN, HIGH);
+    digitalWrite(LED_PIN, LED_OFF_LVL);
 }
 
 void digitalBeep(int duration) {
