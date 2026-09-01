@@ -92,6 +92,7 @@ uint16_t kindColor(DetectionFeed::DetKind k) {
         case K::WiFi:  return C_WIFI;
         case K::Drone: return C_DRONE;
         case K::GPS:   return C_GPS;
+        case K::Meta:  return C_ALERT;   // magenta, matching the web META badge
         default:       return C_GREY;
     }
 }
@@ -103,6 +104,7 @@ const char* kindTag(DetectionFeed::DetKind k) {
         case K::WiFi:  return "WIFI";
         case K::Drone: return "UAS";
         case K::GPS:   return "GPS";
+        case K::Meta:  return "META";
         default:       return "?";
     }
 }

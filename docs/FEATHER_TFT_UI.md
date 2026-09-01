@@ -90,7 +90,10 @@ The palette mirrors the oui-spy-unified-blue web theme
 near-black teal background (`#030805`), neon green primary accent (`#00ff66`),
 cyan (`#00e5ff`), magenta for alerts/errors (`#ff2bd6`), amber for warnings
 (`#ffb000`), body text `#cfe8d8`, muted labels `#6a8878`. Detection kind chips:
-BLE cyan, WiFi green, UAS (drone) magenta, GPS lime.
+BLE cyan, WiFi green, UAS (drone) magenta, GPS lime, META (Meta/Ray-Ban
+glasses) magenta. The Detector classifies composite Meta/Ray-Ban hits
+(`meta_composite`) as `DetKind::Meta` so they render with a distinct magenta
+`META` chip, mirroring the web dashboard's dedicated META badge.
 
 ## Status LED
 

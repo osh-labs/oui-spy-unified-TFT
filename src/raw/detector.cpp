@@ -1302,8 +1302,14 @@ static void bleNoteDetection(NimBLEAdvertisedDevice* dev, const String& mac,
                                   nameBuf, cid, svc, (int8_t)rssi, &row);
 
     // Publish to the graphical detection feed (drives the Feather TFT UI;
-    // no-op storage cost on boards without a display).
-    DetectionFeed::pushDetection(DetectionFeed::DetKind::BLE,
+    // no-op storage cost on boards without a display). Meta / Ray-Ban composite
+    // hits get their own kind so the TFT flags them with a magenta META chip,
+    // mirroring the web dashboard's dedicated META badge.
+    DetectionFeed::DetKind feedKind =
+        (strcmp(method, BLE_MM_META_COMPOSITE) == 0)
+            ? DetectionFeed::DetKind::Meta
+            : DetectionFeed::DetKind::BLE;
+    DetectionFeed::pushDetection(feedKind,
                                  nameBuf[0] ? nameBuf : method,
                                  macBuf, (int8_t)rssi, 0, created);
 
