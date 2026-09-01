@@ -172,6 +172,42 @@ static const size_t OUI_COUNT = sizeof(target_ouis) / sizeof(target_ouis[0]);
 static uint8_t oui_bytes[OUI_COUNT][3];
 
 // ============================================================
+// COMMON-SILICON OUI ANNOTATION  (false-positive hinting)
+// ============================================================
+//
+// Some target OUIs are mainstream consumer Wi-Fi chipset vendors, not Flock-
+// specific. A device on one of these that is actively scanning produces a
+// tier-3 wildcard-probe hit that is almost certainly NOT a camera. When a hit's
+// OUI is in this table the TFT shows the vendor name and flags the row as a
+// probable false positive.
+//
+// This is a deliberately small, high-confidence starter list. Extend it from
+// the IEEE OUI registry (https://standards-oui.ieee.org) as you confirm more.
+// Do NOT add an OUI that Flock cameras actually use (e.g. the Liteon Wi-Fi
+// module the IE-signature path keys on) — that would hide real cameras.
+struct OuiVendor { const char* oui; const char* name; };
+static const OuiVendor kCommonSiliconOuis[] = {
+  { "a4:cf:12", "Espressif" },   // ESP32/ESP8266 — ubiquitous in consumer IoT
+  { "3c:71:bf", "Espressif" },
+};
+static const size_t COMMON_SILICON_COUNT =
+    sizeof(kCommonSiliconOuis) / sizeof(kCommonSiliconOuis[0]);
+
+// Return the common-silicon vendor name for a "aa:bb:cc:..." MAC string, or
+// nullptr if its OUI is not a known common-silicon prefix. macToStr() emits
+// lowercase hex and the table is lowercase, so a plain prefix compare of the
+// first 8 chars ("aa:bb:cc") is sufficient.
+static const char* fyCommonSiliconVendor(const char* macStr) {
+  if (!macStr || strlen(macStr) < 8) return nullptr;
+  for (size_t i = 0; i < COMMON_SILICON_COUNT; i++) {
+    if (strncmp(macStr, kCommonSiliconOuis[i].oui, 8) == 0) {
+      return kCommonSiliconOuis[i].name;
+    }
+  }
+  return nullptr;
+}
+
+// ============================================================
 // ALERT QUEUE  (callback → loop, avoids Serial in WiFi task)
 // ============================================================
 
@@ -1587,10 +1623,20 @@ static void drainAlertQueue() {
     // probe) and tier 4 (probe + IE signature) are Flock-shaped, so only those
     // reach the TFT, tagged as Flock with their tier for confidence colouring.
     if (tier >= TIER_PROBE) {
-        DetectionFeed::pushDetection(
-            DetectionFeed::DetKind::Flock,
-            (e.type == ALERT_SSID && e.ssid[0]) ? e.ssid : method,
-            macStr, e.rssi, e.channel, chirpWorthy, tier);
+        // Label with the MAC so the OUI is visible on the TFT for identifying
+        // the device; annotate with the common-silicon vendor name when the
+        // OUI is a known consumer Wi-Fi chipset (a probable false positive).
+        DetectionFeed::DetEvent fe = {};
+        strlcpy(fe.label, macStr, sizeof(fe.label));
+        strlcpy(fe.mac, macStr, sizeof(fe.mac));
+        fe.rssi    = e.rssi;
+        fe.channel = e.channel;
+        fe.kind    = DetectionFeed::DetKind::Flock;
+        fe.tier    = tier;
+        fe.isNew   = chirpWorthy;
+        const char* vendor = fyCommonSiliconVendor(macStr);
+        if (vendor) strlcpy(fe.note, vendor, sizeof(fe.note));
+        DetectionFeed::pushDetection(fe);
     }
 
 #if STOP_ON_OUI_HIT

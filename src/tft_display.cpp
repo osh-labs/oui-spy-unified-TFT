@@ -250,15 +250,26 @@ void drawDetectionBody(const DetectionFeed::Snapshot& s, uint32_t now) {
                 sizeof(lbl));
         cv->print(lbl);
 
-        // RSSI mini-bar on the next line.
+        // Second line. For a Flock hit whose OUI is a known common-Wi-Fi-
+        // silicon vendor, replace the RSSI bar with an amber false-positive
+        // annotation (the vendor name), keeping the numeric RSSI. Otherwise the
+        // usual RSSI bar.
         int16_t barY = y + 10;
         int16_t barX = listX;
         int16_t barW = 120;
-        cv->drawRect(barX, barY, barW, 4, C_CYAN);
-        int pct = rssiPct(e.rssi);
-        if (pct > 0) {
-            cv->fillRect(barX + 1, barY + 1, (barW - 2) * pct / 100, 2,
-                         rssiColor(e.rssi));
+        if (isFlock && e.note[0]) {
+            cv->setTextColor(C_AMBER);
+            cv->setCursor(barX, barY - 2);
+            char fp[20];
+            snprintf(fp, sizeof(fp), "FP? %s", e.note);
+            cv->print(fp);
+        } else {
+            cv->drawRect(barX, barY, barW, 4, C_CYAN);
+            int pct = rssiPct(e.rssi);
+            if (pct > 0) {
+                cv->fillRect(barX + 1, barY + 1, (barW - 2) * pct / 100, 2,
+                             rssiColor(e.rssi));
+            }
         }
         if (e.rssi != 0) {
             cv->setTextColor(C_GREY);
