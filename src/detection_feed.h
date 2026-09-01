@@ -41,6 +41,7 @@ enum class DetKind : uint8_t {
     WiFi,       // WiFi frame / OUI match
     Drone,      // Remote ID (Sky Spy)
     GPS,        // GPS-tagged surveillance hit (Flock-You)
+    Meta,       // Meta / Ray-Ban smart glasses (composite BLE match)
 };
 
 // High-level status shown in the header bar.
