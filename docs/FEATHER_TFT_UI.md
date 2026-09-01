@@ -107,6 +107,17 @@ its label white for emphasis. Tiers 0-2 still beep and log over serial/web as
 before, they are just kept off the graphical detection list. The on-screen
 unique count is therefore high-confidence cameras only.
 
+To help identify what a tier-3 hit actually is, Flock rows label themselves with
+the transmitter **MAC** (so the OUI is visible at a glance) rather than the
+match method. When the OUI is a known common consumer Wi-Fi chipset vendor —
+i.e. a probable false positive, since tier 3 is just "OUI match + active
+scanning" — the second line shows an amber `FP? <vendor>` annotation in place of
+the RSSI bar (the numeric RSSI is kept). The vendor set lives in
+`kCommonSiliconOuis` in `raw/flockyou_promiscious.cpp`; it is a small,
+high-confidence starter list (seeded with Espressif) meant to be extended from
+the IEEE OUI registry. An OUI a Flock camera actually uses must never be added
+there, or real cameras would be flagged as false positives.
+
 ## Status LED
 
 Mode code was written for the XIAO's active-LOW LED. The Feather's on-board red
