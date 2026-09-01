@@ -62,6 +62,10 @@ struct DetEvent {
     DetKind     kind;
     uint8_t     tier;       // confidence tier where the mode grades it (0 = n/a).
                             // Flock-You: 3 = wildcard probe, 4 = probe+IE sig.
+    char        note[12];   // optional short annotation, "" if none. Flock-You
+                            // sets it to a known common-Wi-Fi-silicon vendor
+                            // name when the matched OUI is one, marking a
+                            // probable false positive.
     bool        isNew;      // first sighting (true) vs. re-hit (false)
     uint32_t    ts;         // millis() at push time
 };
