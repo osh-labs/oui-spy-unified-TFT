@@ -107,13 +107,14 @@ void pushDetection(const DetEvent& evt) {
 }
 
 void pushDetection(DetKind kind, const char* label, const char* mac,
-                   int8_t rssi, uint8_t channel, bool isNew) {
+                   int8_t rssi, uint8_t channel, bool isNew, uint8_t tier) {
     DetEvent e = {};
     strlcpy(e.label, label ? label : "", sizeof(e.label));
     strlcpy(e.mac, mac ? mac : "", sizeof(e.mac));
     e.rssi = rssi;
     e.channel = channel;
     e.kind = kind;
+    e.tier = tier;
     e.isNew = isNew;
     e.ts = millis();
     pushDetection(e);

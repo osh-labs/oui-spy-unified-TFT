@@ -42,6 +42,7 @@ enum class DetKind : uint8_t {
     Drone,      // Remote ID (Sky Spy)
     GPS,        // GPS-tagged surveillance hit (Flock-You)
     Meta,       // Meta / Ray-Ban smart glasses (composite BLE match)
+    Flock,      // Flock Safety camera (WiFi OUI/probe match, tier-graded)
 };
 
 // High-level status shown in the header bar.
@@ -59,6 +60,8 @@ struct DetEvent {
     int8_t      rssi;       // dBm, 0 if unknown
     uint8_t     channel;    // radio channel, 0 if n/a
     DetKind     kind;
+    uint8_t     tier;       // confidence tier where the mode grades it (0 = n/a).
+                            // Flock-You: 3 = wildcard probe, 4 = probe+IE sig.
     bool        isNew;      // first sighting (true) vs. re-hit (false)
     uint32_t    ts;         // millis() at push time
 };
@@ -101,9 +104,11 @@ void setStatus(DetStatus status);
 // Publish a detection. Copies the event. Updates counters and the ring.
 void pushDetection(const DetEvent& evt);
 
-// Convenience overload for the common case.
+// Convenience overload for the common case. `tier` is an optional confidence
+// grade (0 = not applicable); modes that rank their matches pass it so the UI
+// can highlight high-confidence hits.
 void pushDetection(DetKind kind, const char* label, const char* mac,
-                   int8_t rssi, uint8_t channel, bool isNew);
+                   int8_t rssi, uint8_t channel, bool isNew, uint8_t tier = 0);
 
 // RSSI-proximity channel (Foxhunter). Pass detected=false to show "searching".
 void setProximity(int8_t rssi, const char* targetMac, bool detected);

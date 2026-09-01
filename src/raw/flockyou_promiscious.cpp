@@ -1580,12 +1580,18 @@ static void drainAlertQueue() {
     snprintf(methodLine, sizeof(methodLine), "wifi_%s", method);
     dongleDisplayShowAlert(methodLine, macStr, e.rssi, e.channel, ALERT_COOLDOWN_MS);
 
-    // Publish to the graphical detection feed (Feather TFT UI). Label with the
-    // matched SSID when present, otherwise the match method (OUI/probe tier).
-    DetectionFeed::pushDetection(
-        DetectionFeed::DetKind::WiFi,
-        (e.type == ALERT_SSID && e.ssid[0]) ? e.ssid : method,
-        macStr, e.rssi, e.channel, chirpWorthy);
+    // Publish to the graphical detection feed (Feather TFT UI). Only surface
+    // high-confidence hits: tiers 0-2 (SSID keyword, OUI echo, and bare
+    // transmitter-OUI) collide with ordinary Wi-Fi silicon vendors and flood
+    // the screen with office devices that are not cameras. Tier 3 (wildcard
+    // probe) and tier 4 (probe + IE signature) are Flock-shaped, so only those
+    // reach the TFT, tagged as Flock with their tier for confidence colouring.
+    if (tier >= TIER_PROBE) {
+        DetectionFeed::pushDetection(
+            DetectionFeed::DetKind::Flock,
+            (e.type == ALERT_SSID && e.ssid[0]) ? e.ssid : method,
+            macStr, e.rssi, e.channel, chirpWorthy, tier);
+    }
 
 #if STOP_ON_OUI_HIT
     if (e.type != ALERT_SSID) stopSniffing("OUI hit");
